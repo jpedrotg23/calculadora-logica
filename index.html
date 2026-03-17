@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Calculadora Lógica</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.container {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+input {
+  width: 100%;
+  height: 40px;
+  font-size: 18px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 60px);
+  gap: 8px;
+  justify-content: center;
+}
+
+button {
+  height: 40px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.var { background: #22c55e; }
+.op { background: #3b82f6; }
+.ctrl { background: #f59e0b; }
+.eq { background: #ef4444; }
+
+#resultado {
+  margin-top: 10px;
+}
+
+table {
+  margin-top: 15px;
+  border-collapse: collapse;
+}
+
+td, th {
+  border: 1px solid #555;
+  padding: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+<h2>Calculadora Lógica</h2>
+
+<input id="display" readonly>
+
+<div class="grid">
+<button class="var" onclick="add('A')">A</button>
+<button class="var" onclick="add('B')">B</button>
+<button class="var" onclick="add('C')">C</button>
+<button class="op" onclick="add('~')">~</button>
+
+<button class="op" onclick="add('^')">^</button>
+<button class="op" onclick="add('v')">v</button>
+<button class="op" onclick="add('→')">→</button>
+<button class="op" onclick="add('↔')">↔</button>
+
+<button class="op" onclick="add('(')">(</button>
+<button class="op" onclick="add(')')">)</button>
+<button class="ctrl" onclick="del()">DEL</button>
+<button class="ctrl" onclick="limpar()">🗑️</button>
+
+<button class="eq" style="grid-column: span 4;" onclick="calcular()">CALCULAR</button>
+</div>
+
+<p id="resultado"></p>
+<div id="tabela"></div>
+</div>
+
+<script>
+// elementos da tela
+const display = document.getElementById("display");
+const resultado = document.getElementById("resultado");
+const tabela = document.getElementById("tabela");
+
+// adiciona caractere
+function add(c) {
+  display.value += c;
+}
+
+// limpa tudo
+function limpar() {
+  display.value = "";
+  resultado.innerText = "";
+  tabela.innerHTML = "";
+}
+
+// apaga 1 caractere
+function del() {
+  display.value = display.value.slice(0, -1);
+}
+
+// =====================
+// ANÁLISE LÉXICA
+// =====================
+function analiseLexica(f) {
+  return /^[A-Z()~^v→↔\s]+$/.test(f);
+}
+
+// =====================
+// ANÁLISE SINTÁTICA
+// =====================
+function analiseSintatica(f) {
+  let pilha = [];
+
+  for (let c of f) {
+    if (c === '(') pilha.push(c);
+    if (c === ')') {
+      if (pilha.length === 0) return false;
+      pilha.pop();
+    }
+  }
+
+  return pilha.length === 0;
+}
+
+// =====================
+// AVALIA EXPRESSÃO
+// =====================
+function avaliar(expr) {
+  expr = expr
+    .replace(/~/g, '!')
+    .replace(/\^/g, '&&')
+    .replace(/v/g, '||')
+    .replace(/→/g, '<=')
+    .replace(/↔/g, '===');
+
+  return eval(expr);
+}
+
+// =====================
+// GERA COMBINAÇÕES
+// =====================
+function gerarCombinacoes(vars) {
+  let total = 2 ** vars.length;
+  let lista = [];
+
+  for (let i = 0; i < total; i++) {
+    let linha = {};
+    vars.forEach((v, j) => {
+      linha[v] = Boolean((i >> j) & 1);
+    });
+    lista.push(linha);
+  }
+
+  return lista;
+}
+
+// =====================
+// FUNÇÃO PRINCIPAL
+// =====================
+function calcular() {
+  let formula = display.value;
+
+  if (!formula) {
+    resultado.innerText = "Digite uma fórmula";
+    return;
+  }
+
+  if (!analiseLexica(formula)) {
+    resultado.innerText = "Erro léxico";
+    return;
+  }
+
+  if (!analiseSintatica(formula)) {
+    resultado.innerText = "Erro sintático";
+    return;
+  }
+
+  let vars = [...new Set(formula.match(/[A-Z]/g))];
+  let combinacoes = gerarCombinacoes(vars);
+
+  let html = "<table><tr>";
+
+  vars.forEach(v => html += `<th>${v}</th>`);
+  html += "<th>R</th></tr>";
+
+  let allTrue = true;
+  let allFalse = true;
+
+  for (let c of combinacoes) {
+    let expr = formula;
+
+    for (let v of vars) {
+      expr = expr.replaceAll(v, c[v]);
+    }
+
+    let r = avaliar(expr);
+
+    if (r) allFalse = false;
+    else allTrue = false;
+
+    html += "<tr>";
+    vars.forEach(v => html += `<td>${c[v]}</td>`);
+    html += `<td>${r}</td></tr>`;
+  }
+
+  html += "</table>";
+  tabela.innerHTML = html;
+
+  if (allTrue) resultado.innerText = "TAUTOLOGIA";
+  else if (allFalse) resultado.innerText = "CONTRADIÇÃO";
+  else resultado.innerText = "CONTINGÊNCIA";
+}
+</script>
+
+</body>
+</html>
